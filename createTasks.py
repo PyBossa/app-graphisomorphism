@@ -149,7 +149,8 @@ def run(app_config, options):
         # Data for the tasks
         task_info = graph
         try:
-            response = pbclient.create_task(app.id, task_info, priority_0=priority)
+            response = pbclient.create_task(app.id, task_info, priority_0=priority,
+                                            n_answers=options.n_answers)
             #if int(response.headers['X-Rate-Limit']) < 10:
             #    print "We are close to hit the maximum rate limit"
             #    print "Sleeping 5 minutes before adding more tasks"
