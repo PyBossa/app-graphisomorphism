@@ -1,0 +1,397 @@
+<style>
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+  fill : #33CCFF;
+}
+
+
+.nodeAlt {
+  stroke: #fff;
+  stroke-width: 1.5px;
+  fill : #FF6600;
+}
+
+.greenBoundary {
+  stroke : #00FF00 !important;
+  stroke-width: 6px !important;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+.linkAlt {
+  stroke: #FF0000;
+  stroke-opacity: .6;
+}
+</style>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<div class="row">
+    <!-- Success and Error Messages for the user --> 
+    <div class="span12" style="height:50px">
+        <div id="success" class="alert alert-success" style="display:none;">
+            <strong>Well done!</strong> You have solved the puzzle! Loading next...
+        </div>
+        <div id="loading" class="alert alert-info" style="display:none;">
+            Loading next task...
+        </div>
+        <div id="taskcompleted" class="alert alert-info" style="display:none;">
+            <strong>You have solved all the puzzles!</strong> Thanks a lot!
+        </div>
+        <div id="finish" class="alert alert-success" style="display:none;">
+            <strong>You have solved all the puzzles!</strong> Thanks a lot!
+            <br/>
+            <div class="alert-actions">
+                <a class="btn small" href="/">Go back</a>
+                <a class="btn small" href="/app">or, Check other applications</a>
+            </div>
+        </div>
+        <div id="error" class="alert alert-error" style="display:none;">
+            <strong>Ooops!</strong> Almost, but it is not correct. Try again!
+        </div>
+    </div> <!-- End Success and Error Messages for the user -->
+</div> <!-- End of Row -->
+
+<!--
+    Task DOM for loading the Flickr Images
+    It uses the class="skeleton" to identify the elements that belong to the
+    task.
+-->
+<div class="row skeleton"> <!-- Start Skeleton Row-->
+    <div class="span12">
+        <div id="gameArea"></div>
+    </div>
+</div>
+
+<script>
+pybossa.taskLoaded(function(task, deferred) {
+    if ( !$.isEmptyObject(task) ) {
+        var div = $("<div/>");
+        div.attr("id", "gameArea_" + task.id);
+        div.css("display", "hidden");
+        $("#gameArea").append(div);
+        deferred.resolve(task);
+    }
+    else {
+        deferred.resolve(task);
+    }
+});
+
+pybossa.presentTask(function(task, deferred) {
+    if ( !$.isEmptyObject(task) ) {
+
+    $("#gameArea_" + task.id).show();
+
+    var temp;
+    
+    var width = 960,
+        height = 500;
+    
+    var rForceBased = 10, rCircularBased = 8;
+    
+    var color = d3.scale.category20();
+    
+    var force = d3.layout.force()
+        .charge(-900)
+        .linkDistance(50)
+        .size([width/2, height]);
+    
+    var svg = d3.select("#gameArea_" + task.id).append("svg")
+        .attr("width", width)
+        .attr("height", height);
+    
+    svg.append("svg:rect")
+        .attr("width", width)
+        .attr("height", height)
+        .style("stroke", "#000");
+    
+    //Add Text box for timer
+    svg.append("text")
+        .attr("x","20")
+        .attr("y","20")
+        .attr("fill","white");
+    
+    var startTime = new Date().getTime();
+    
+    var currentEvent = "";
+    
+    var eventLog = "";
+    
+    //d3.json(task.info.level, function(error, graph) { // temporary solution for randomly showing two graphs
+    function game(graph) { // temporary solution for randomly showing two graphs
+           force
+          .nodes(graph.nodes)
+          .links(graph.links)
+          .start();
+    
+      var link = svg.selectAll(".link")
+          .data(graph.links)
+        .enter().append("line")
+          .attr("class", "link");
+    
+        var node_drag = d3.behavior.drag()
+            .on("dragstart", dragstart)
+            .on("drag", dragmove)
+            .on("dragend", dragend);
+    
+        function dragstart(d, i) {
+            force.stop() // stops the force auto positioning before you start dragging
+            console.log("Force_dragStart");
+    
+            currentEvent = "D;F;S;"+d.index+";"+d.x+";"+d.y+";"+(new Date().getTime() - startTime)+"#";
+            console.log(currentEvent);
+            eventLog += currentEvent ;
+    
+    
+        }
+    
+        function dragmove(d, i) {
+            d.px += d3.event.dx;
+            d.py += d3.event.dy;
+            d.x += d3.event.dx;
+            d.y += d3.event.dy; 
+            tick(); // this is the key to make it work together with updating both px,py,x,y on d !
+        }
+    
+        function dragend(d, i) {
+            d.fixed = false; // of course set the node to fixed so the force doesn't include the node in its auto positioning stuff
+            tick();
+            force.resume();
+            console.log("Force_dragEnd");
+    
+            currentEvent = "D;F;E;"+d.index+";"+d.x+";"+d.y+";"+(new Date().getTime() - startTime)+"#";
+            console.log(currentEvent);
+            eventLog += currentEvent ;
+    
+    
+        }
+    
+      var node = svg.selectAll(".node")
+          .data(graph.nodes)
+        .enter().append("circle")
+          .attr("class", "node")
+          .attr("r", rForceBased)
+          .call(node_drag);
+    
+    
+    
+        
+         //Represents the bijection funcitons from ForceGraph -> Circular Graph and the reverse
+         var lockForceToCircular = {};
+         var lockCircularToForce = {};
+    
+         //Compute Adjacency Matrix
+         var adjacencyMatrix = {}
+         for( var key in graph.links){
+        adjacencyMatrix[graph.links[key].source.index +"__" + graph.links[key].target.index] = 1;
+        adjacencyMatrix[graph.links[key].target.index + "__" + graph.links[key].source.index] = 1;
+         }
+        //console.log(adjacencyMatrix);
+    
+        //Temp Variables
+        var distMap;
+        var distIndex;
+        var dist;
+        var xDiff;
+        var yDiff;
+        var closestNode;
+        var testResult;
+        var testSource, testTarget;
+        //Temp Variables End
+    
+        //Second Graph
+        
+        var numberOfNodes = graph.nodes.length;
+        //Centre
+    
+          var linkAlt = svg.selectAll(".linkAlt")
+              .data(graph.links)
+            .enter().append("line")
+              .attr("class", "linkAlt");
+    
+        var Cx = width*3/4;
+        var Cy = height/2;
+        var Cr = width/(8);
+    
+        var count = -1;
+        var nodeAlt = svg.selectAll(".nodeAlt").data(graph.nodes).enter().append("circle").attr("class","nodeAlt")
+        .attr("r",rCircularBased)
+        .attr("cx", function(d){return Cx+Cr*Math.sin((d.name*(360/numberOfNodes))*(Math.PI/180));})
+        .attr("cy", function(d){ return Cy+Cr*Math.cos((d.name*(360/numberOfNodes))*(Math.PI/180));})
+        .call(d3.behavior.drag().on("drag", function(){
+            d3.select(this)
+                .attr("cx", Math.max(rCircularBased, Math.min(width-rCircularBased,d3.event.x)))
+                .attr("cy", Math.max(rCircularBased, Math.min(height-rCircularBased,d3.event.y)))
+            
+            //Update Links
+                updateAltLinks();   
+    
+            //console.log(d3.select(this)[0][0].__data__.x);
+            
+            //Check proximity to an unlocked target vertex, and color the closest one Green
+                //Compute Distance Map for all Valid Nodes
+                distMap = new Array();
+                distIndex = {};
+                
+                for(var i=0;i<graph.nodes.length;i++){
+                    if(lockForceToCircular[i] == undefined){
+                        //console.log(d3.select(this)[0][0].cx.baseVal.value);
+                        xDiff = node[0][i].__data__.x - d3.select(this)[0][0].cx.baseVal.value;
+                        yDiff = node[0][i].__data__.y - d3.select(this)[0][0].cy.baseVal.value;
+                        dist = Math.sqrt(xDiff*xDiff + yDiff*yDiff);
+                        if(dist < rForceBased + rCircularBased ) { //ToDo :: add Lock/Unlock condition here
+                        distMap.push(dist);
+                        distIndex[dist] = i;
+                        }   
+                    }
+                }
+                //distMaps of Valid Nodes available find the closest Node
+                closestNode = distIndex[Math.min(distMap)];
+                //Add green boundary to the node
+                //console.log(node[0][closestNode].className);
+                node.classed("greenBoundary", function(d){if(d.index==closestNode){ return true; } else {return false;}});
+            }).on("dragend",function(){
+            //if closestNode is not undefined LOCK these two node pairs     
+            if(closestNode != undefined){   
+                lockCircularToForce[d3.select(this)[0][0].__data__.index] = closestNode;
+                lockForceToCircular[closestNode] = d3.select(this)[0][0].__data__.index;
+                //console.log(lockCircularToForce);
+                //console.log(lockForceToCircular);
+    
+                //Add the lock event
+                console.log("Locking !!!");
+    
+                //Documentation for Lock event
+                // L ; CircularNode_Index ; ForceNode_Index ; X ; Y ; Timestamp #
+    
+                currentEvent = "L;"+d3.select(this)[0][0].__data__.index+";"+closestNode+";"+node[0][closestNode].cx.baseVal.valueAsString+";"+node[0][closestNode].cy.baseVal.valueAsString+";"+(new Date().getTime() - startTime)+"#";
+                eventLog += currentEvent;
+                console.log(currentEvent);
+    
+            }   
+                //Check for completion here after checking if all nodes are mapped 
+                if(Object.keys(lockCircularToForce).length == graph.nodes.length){
+                    //All Nodes Mapped !! Check for Completion here !!
+                    //Test is based on the condition that ::
+                    // A vertext bijection f : V_g ->V_h between two simple graphs G and H are same if 
+                    // for every pair of vertices in G, 
+                    // u and v are adjacent if and only if f(u) and f(v) are adjacent in H
+    
+                    // In our case, that is....
+                    // Iterate over all edges in the adjacency matrix(the source and target are nodes in the ForceGraph)
+                    // If the Corresponding mappings in Force->Circular lock also have an edge for all the edges, the graphs have been aligned correctly
+                    testResult = true;      
+                    for(var key in adjacencyMatrix){
+                        testSource = parseInt(key.split("__")[0]);
+                        testTarget = parseInt(key.split("__")[1]);
+                        if(adjacencyMatrix[lockForceToCircular[testSource]+"__"+lockForceToCircular[testTarget]] == undefined){
+                            testResult = false;
+                        }
+                    }
+                    if(testResult==true){   
+                        //alert("Correct !! eventLog ="+ eventLog);
+                        //document.location.reload(true);
+                        $("#error").hide();
+                        $("#success").show();
+                        $("#success").fadeOut( 3000, function() {});
+                        var answer = {'eventLog': eventLog};
+                        pybossa.saveTask(task.id, answer).done(function() {
+                            $("#gameArea_" + task.id).remove();
+                            deferred.resolve();
+                        });
+                    }else{
+                        //alert("Wrong !!");
+                        $("#succes").hide();
+                        $("#error").show();
+                        $("#error").fadeOut( 3000, function() {});
+                    }
+    
+                }
+    
+            currentEvent = "D;C;E;"+d3.select(this)[0][0].__data__.index+";"+d3.select(this)[0][0].cx.baseVal.valueAsString+";"+d3.select(this)[0][0].cy.baseVal.valueAsString+";"+(new Date().getTime() - startTime)+"#";
+            console.log(currentEvent);
+            eventLog += currentEvent ;
+    
+            console.log("Circular_dragEnd");
+        }).on("dragstart",function(){
+            //if a lock exists remove it
+            if(lockCircularToForce[d3.select(this)[0][0].__data__.index]!=undefined){
+    
+    
+    
+                delete lockForceToCircular[lockCircularToForce[d3.select(this)[0][0].__data__.index]];
+                delete lockCircularToForce[d3.select(this)[0][0].__data__.index];
+    
+    
+                console.log("UnLocking !!!");
+    
+                //Documentation for Lock event
+                // L ; CircularNode_Index ; ForceNode_Index ; X ; Y ; Timestamp #
+    
+                currentEvent = "U;"+d3.select(this)[0][0].__data__.index+";"+closestNode+";"+node[0][closestNode].cx.baseVal.valueAsString+";"+node[0][closestNode].cy.baseVal.valueAsString+";"+(new Date().getTime() - startTime)+"#";
+                eventLog += currentEvent;
+                console.log(currentEvent);
+            }
+    
+            //Documentation for Drag Event Log
+            // D ; CircularNode/ForceNode ; Start/End ; Node_Index ; X ; Y ; Timestamp #
+    
+            //Add dragStart Event
+            currentEvent = "D;C;S;"+d3.select(this)[0][0].__data__.index+";"+d3.select(this)[0][0].cx.baseVal.valueAsString+";"+d3.select(this)[0][0].cy.baseVal.valueAsString+";"+(new Date().getTime() - startTime)+"#";
+            console.log(currentEvent);
+            console.log("Circular_dragStart");
+            eventLog += currentEvent ;
+    
+        }));
+     
+        updateAltLinks();
+    
+        function updateAltLinks(){
+                            linkAlt.attr("x1", function(d) { return   nodeAlt[0][d.source.index].cx.baseVal.valueAsString; }) //ToDo :: Change these to the __data__ format
+                            .attr("y1", function(d) { return nodeAlt[0][d.source.index].cy.baseVal.valueAsString; })
+                            .attr("x2", function(d) { return nodeAlt[0][d.target.index].cx.baseVal.valueAsString; })
+                            .attr("y2", function(d) { return nodeAlt[0][d.target.index].cy.baseVal.valueAsString; });   
+        }
+    
+    
+        function tick(){
+                node.attr("cx", function(d) { return d.x = Math.max(rForceBased, Math.min(width - rForceBased, d.x)); })
+            .attr("cy", function(d) { return d.y = Math.max(rForceBased, Math.min(height - rForceBased, d.y)); });
+    
+        link.attr("x1", function(d) { return d.source.x; })
+            .attr("y1", function(d) { return d.source.y; })
+            .attr("x2", function(d) { return d.target.x; })
+            .attr("y2", function(d) { return d.target.y; });
+    
+        updateAltLinks();
+        }
+    
+      force.on("tick", tick);
+    
+    //Update Timer
+    setInterval(function(){
+       //update time !!
+        svg.selectAll("text").text("Time :: "+(new Date().getTime() - startTime)/1000 + "s");
+    
+       //Align all locked nodes
+       for(var key in lockForceToCircular){
+    
+        nodeAlt.attr("cx", function(d) { if(d.index==lockForceToCircular[key]) { return node[0][key].cx.baseVal.value}else{return nodeAlt[0][d.index].cx.baseVal.value; } })
+        .attr("cy", function(d) { if(d.index==lockForceToCircular[key]) { return node[0][key].cy.baseVal.value} else { return nodeAlt[0][d.index].cy.baseVal.value;} });
+       } 
+    },10);
+    
+    }
+
+    game(task.info.level);
+    }
+    else {
+        $(".skeleton").hide();
+        $("#finish").fadeIn(500);
+    }
+});
+
+pybossa.run('graphisomorphism');
+</script>
