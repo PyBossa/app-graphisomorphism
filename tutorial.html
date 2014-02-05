@@ -1,0 +1,56 @@
+<div class="row">
+    <div class="span12">
+        <div id="modal" class="modal hide fade">
+            <div class="modal-header">
+                <h3>Graph Isomorphism tutorial</h3>
+            </div>
+            <div id="0" class="modal-body" style="display:none">
+                <p>
+                The game your are playing solves instances of the <strong>Graph Isomorphism Problem</strong> (for short, GIP). Two graphs are said to be isomorphic when there is a one-to-one mapping between their sets of points that preserves the links. To be exact, in our game, we are given two isomorphic graphs and we need to find such a mapping.</p>
+   
+                <p><strong>GIP is a famous mathematical problem</strong> with many applications spanning from the design of electronic circuits to the analysis of social networks. Despite more than half-century of research,
+                GIP has unknown computational complexity. In other words, it is unknown how fast is the fastest algorithm for solving GIP. While GIP is widely believed to be easy, so far, we know it to be easy only for special families of graphs.</p>
+   
+                <p>Here we ask: <strong>how do human beings perform when solving GIP?</strong> Do human beings find GIP easier on certain graphs? Is it mostly matter of cognition or there is a <strong>"human parameter of complexity"</strong> reflecting some mathematical parameter of complexity? We collect data from our game, with the purpose to shed light onto this questions and possibly to <strong>learn something new about complexity</strong> in general.</p>
+               </p> 
+            </div>
+            <div id="1" class="modal-body" style="display:none">
+
+                <p>All you have to do is to drag and drop the orange dots of the right graph on top of the blue dots of the right graph.</p>
+                <p>The challenge: you have to build the same graph.</p>
+            </div>
+                        <div class="modal-footer">
+                <a id="prevBtn" href="#" onclick="showStep('prev')" class="btn">Previous</a>
+                <a id="nextBtn" href="#" onclick="showStep('next')" class="btn btn-success">Next</a>
+                <a id="startContrib" href="../graphisomorphism/newtask" class="btn btn-primary" style="display:none"><i class="icon-thumbs-up"></i> Start playing!</a>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    var step = -1;
+    function showStep(action) {
+        $("#" + step).hide();
+        if (action == 'next') {
+            step = step + 1;
+        }
+        if (action == 'prev') {
+            step = step - 1;
+        }
+        if (step == 0) {
+            $("#prevBtn").hide();
+        }
+        else {
+            $("#prevBtn").show();
+        }
+
+        if (step == 1 ) {
+            $("#nextBtn").hide();
+            $("#startContrib").show();
+        }
+        $("#" + step).show();
+    }
+
+    showStep('next');
+    $("#modal").modal('show');
+</script>
