@@ -61,7 +61,10 @@
 -->
 <div class="row skeleton"> <!-- Start Skeleton Row-->
     <div class="span12">
-        <div id="gameArea"></div>
+        <div>
+            <button class="btn btn-inverse btn-random" value="random"><i class="icon icon-random"></i> Try with another graph</button>
+        </div>
+        <div style="margin-top:15px;" id="gameArea"></div>
     </div>
 </div>
 
@@ -83,6 +86,17 @@ pybossa.presentTask(function(task, deferred) {
     if ( !$.isEmptyObject(task) ) {
 
     $("#gameArea_" + task.id).show();
+    console.log("Loading graph: " + task.id);
+
+    $('.btn-random').off('click').on('click', function(evt) {
+            var answer = $(evt.target).attr("value");
+            if (answer == 'random') {
+                $("#gameArea_" + task.id).remove();
+                console.log("Removing graph: " + task.id);
+                clearInterval(task.timer);
+                deferred.resolve();
+            }
+        });
 
     var temp;
     
@@ -299,6 +313,7 @@ pybossa.presentTask(function(task, deferred) {
                         var answer = {'eventLog': eventLog};
                         pybossa.saveTask(task.id, answer).done(function() {
                             $("#gameArea_" + task.id).remove();
+                            clearInterval(task.timer);
                             deferred.resolve();
                         });
                     }else{
@@ -371,10 +386,10 @@ pybossa.presentTask(function(task, deferred) {
       force.on("tick", tick);
     
     //Update Timer
-    setInterval(function(){
+    task.timer = setInterval(function(){
        //update time !!
         svg.selectAll("text").text("Time :: "+(new Date().getTime() - startTime)/1000 + "s");
-    
+ undefined   
        //Align all locked nodes
        for(var key in lockForceToCircular){
     
